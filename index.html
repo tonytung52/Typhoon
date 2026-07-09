@@ -1,0 +1,517 @@
+# Typhoon
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>強颱巴威 3D 動態路徑 ｜ 380 公里暴風圈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Serif+TC:wght@500;700&family=Cormorant+Garamond:ital,wght@0,600;1,600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#020912;
+  --ink:#e8f2ff;
+  --dim:#8fa6bd;
+  --gold:#ffd166;
+  --hot:#ff5f57;
+  --cool:#5ec8ff;
+  --line:rgba(120,170,220,.22);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:
+    radial-gradient(1200px 700px at 70% -10%, #0b2036 0%, transparent 60%),
+    radial-gradient(900px 600px at 10% 110%, #08182b 0%, transparent 60%),
+    var(--bg);
+  color:var(--ink);
+  font-family:"Noto Sans TC",system-ui,sans-serif;
+  min-height:100dvh;
+  overflow-x:hidden;
+}
+
+/* ── 標題：金色流光 ───────────────────────── */
+header{padding:26px 18px 10px;text-align:center}
+.eyebrow{
+  font:600 12px/1.6 "Cinzel","Noto Sans TC",serif;
+  letter-spacing:.42em;color:#6f8aa6;text-transform:uppercase;
+}
+h1{
+  margin-top:8px;
+  font-family:"Cinzel","Noto Serif TC",serif;
+  font-weight:700;
+  font-size:clamp(26px,5.4vw,52px);
+  letter-spacing:.06em;
+  background:linear-gradient(100deg,#8a6a20 0%,#ffd166 22%,#fff6d8 34%,#ffd166 46%,#8a6a20 62%,#ffd166 80%,#8a6a20 100%);
+  background-size:280% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shimmer 12s linear infinite;
+}
+h1 .sub{display:block;font-size:.46em;letter-spacing:.2em;margin-top:6px}
+@keyframes shimmer{0%{background-position:0% 50%}100%{background-position:280% 50%}}
+.tagline{margin-top:10px;color:var(--dim);font-size:clamp(12px,2.6vw,15px);letter-spacing:.06em}
+.tagline b{color:var(--gold);font-weight:700}
+
+/* ── 舞台：霓虹光暈邊框 ───────────────────── */
+@property --ang{syntax:'<angle>';initial-value:0deg;inherits:false}
+.stage-wrap{
+  position:relative;margin:16px auto 0;max-width:1120px;padding:2px;border-radius:20px;
+  background:conic-gradient(from var(--ang),#ffd166,#ff5f57,#c084fc,#5ec8ff,#4ade80,#ffd166);
+  animation:spin 7s linear infinite;
+}
+@keyframes spin{to{--ang:360deg}}
+.stage{
+  position:relative;border-radius:18px;overflow:hidden;
+  background:linear-gradient(180deg,#03101d,#010710);
+}
+canvas{display:block;width:100%;height:min(66dvh,620px);touch-action:none;cursor:grab}
+canvas:active{cursor:grabbing}
+
+/* ── HUD ────────────────────────────────── */
+.hud{
+  position:absolute;top:12px;left:12px;
+  background:rgba(2,12,22,.62);backdrop-filter:blur(8px);
+  border:1px solid var(--line);border-radius:12px;padding:11px 13px;
+  font-size:12px;line-height:1.75;letter-spacing:.02em;pointer-events:none;
+}
+.hud .t{font-family:"Cinzel",serif;color:var(--gold);letter-spacing:.14em;font-size:11px}
+.hud .clock{font-size:17px;font-weight:700;color:#fff;letter-spacing:.04em;margin:2px 0 4px}
+.hud .row{color:var(--dim)}
+.hud .row b{color:var(--ink);font-weight:500}
+.hud .warn{color:var(--hot);font-weight:700}
+
+.legend{
+  position:absolute;top:12px;right:12px;
+  background:rgba(2,12,22,.62);backdrop-filter:blur(8px);
+  border:1px solid var(--line);border-radius:12px;padding:11px 13px;
+  font-size:11.5px;line-height:1.9;pointer-events:none;
+}
+.legend i{display:inline-block;width:20px;height:0;border-top:2px solid;vertical-align:middle;margin-right:7px}
+.legend .d{border-top-style:dashed}
+.hint{
+  position:absolute;left:12px;bottom:12px;color:#5f7590;font-size:11px;letter-spacing:.05em;pointer-events:none;
+}
+
+/* ── 控制列 ─────────────────────────────── */
+.controls{
+  max-width:1120px;margin:14px auto 0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:0 4px;
+}
+button{
+  font-family:inherit;font-size:13px;color:var(--ink);
+  background:rgba(255,255,255,.04);border:1px solid var(--line);
+  border-radius:999px;padding:9px 16px;cursor:pointer;transition:.2s;
+}
+button:hover{border-color:var(--gold);color:var(--gold)}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+input[type=range]{flex:1;min-width:180px;accent-color:#ffd166;height:22px}
+
+/* ── 數據卡 ─────────────────────────────── */
+.grid{max-width:1120px;margin:22px auto 0;padding:0 4px;
+  display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.card{
+  border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));
+  opacity:0;transform:translateY(14px);transition:.7s cubic-bezier(.2,.7,.2,1)
+}
+.card.in{opacity:1;transform:none}
+.card .k{font-size:11px;letter-spacing:.16em;color:#6f8aa6;font-family:"Cinzel",serif}
+.card .v{font-size:26px;font-weight:700;margin:4px 0 2px;letter-spacing:.01em}
+.card .v small{font-size:13px;font-weight:400;color:var(--dim);margin-left:3px}
+.card .n{font-size:11.5px;color:var(--dim);line-height:1.6}
+.card.hot .v{color:var(--hot)}
+.card.gold .v{color:var(--gold)}
+.card.cool .v{color:var(--cool)}
+
+.note{
+  max-width:1120px;margin:22px auto 96px;padding:0 6px;
+  color:#7d93aa;font-size:12.5px;line-height:2;
+}
+.note h3{font-family:"Noto Serif TC",serif;color:var(--ink);font-size:15px;margin-bottom:6px;letter-spacing:.05em}
+.note em{font-style:normal;color:var(--gold)}
+
+/* ── 跑馬燈 ─────────────────────────────── */
+.ticker{
+  position:fixed;left:0;right:0;bottom:0;height:40px;z-index:30;
+  background:linear-gradient(180deg,rgba(2,9,18,.5),rgba(2,9,18,.94));
+  border-top:1px solid rgba(255,209,102,.28);
+  overflow:hidden;display:flex;align-items:center;
+}
+.ticker .seg{white-space:nowrap;font-size:12.5px;letter-spacing:.08em;color:#cfe0f0;padding-right:60px}
+.ticker .seg b{color:var(--hot)}
+.ticker .seg i{color:var(--gold);font-style:normal}
+footer{position:fixed;right:14px;bottom:48px;font:600 11px/1 "Cormorant Garamond",serif;color:#5f7590;letter-spacing:.22em;z-index:31}
+
+@media (prefers-reduced-motion:reduce){
+  h1,.stage-wrap{animation:none}
+  .card{opacity:1;transform:none;transition:none}
+}
+@media(max-width:560px){
+  .legend{display:none}
+  .hud{font-size:11px;padding:8px 10px}
+  canvas{height:56dvh}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Severe Typhoon Bavi &nbsp;·&nbsp; 2026 No.9</div>
+  <h1>強颱巴威<span class="sub">380 公里的暴風圈</span></h1>
+  <p class="tagline">25 年來最大的一顆　·　七級暴風半徑 <b>380 km</b>　·　週五晚至週六影響最劇</p>
+</header>
+
+<div class="stage-wrap">
+  <div class="stage">
+    <canvas id="c"></canvas>
+
+    <div class="hud">
+      <div class="t">FORECAST TIME</div>
+      <div class="clock" id="clock">7/09 08:00</div>
+      <div class="row">中心：<b id="pos">18.4°N 129.8°E</b></div>
+      <div class="row">七級暴風半徑：<b id="r7">380 km</b></div>
+      <div class="row">距鵝鑾鼻：<b id="dist">1140 km</b></div>
+      <div class="row" id="hit">暴風圈：尚未觸陸</div>
+    </div>
+
+    <div class="legend">
+      <div><i style="border-color:#ff5f57"></i>十級風暴風圈 180 km</div>
+      <div><i style="border-color:#ffd166"></i>七級風暴風圈 380 km</div>
+      <div><i class="d" style="border-color:#5ec8ff"></i>路徑潛勢（預測）</div>
+      <div><i style="border-color:#4ade80"></i>台灣本島（南北 394 km）</div>
+    </div>
+
+    <div class="hint">拖曳旋轉　·　滾輪／雙指縮放</div>
+  </div>
+</div>
+
+<div class="controls">
+  <button id="play">⏸ 暫停</button>
+  <button id="spin">🜛 自動環繞：開</button>
+  <button id="reset">↺ 重設視角</button>
+  <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="時間軸">
+</div>
+
+<section class="grid" id="grid">
+  <div class="card gold"><div class="k">RADIUS · 7級風</div><div class="v">380<small>km</small></div><div class="n">西南側 400、東南側 420 公里，破 25 年前尤特紀錄</div></div>
+  <div class="card hot"><div class="k">GUST</div><div class="v">63<small>m/s</small></div><div class="n">近中心最大風速 51 m/s，巔峰曾達 60 m/s</div></div>
+  <div class="card cool"><div class="k">PRESSURE</div><div class="v">925<small>hPa</small></div><div class="n">結構對稱紮實，強風圈廣達千公里</div></div>
+  <div class="card"><div class="k">SPEED</div><div class="v">18<small>km/h</small></div><div class="n">向西北進行，將轉西北西→西北</div></div>
+  <div class="card hot"><div class="k">基隆 侵襲機率</div><div class="v">99<small>%</small></div><div class="n">北北桃宜 95–97%，幾乎全台入暴風圈</div></div>
+</section>
+
+<section class="note">
+  <h3>這張圖在說什麼</h3>
+  <p>影片重點是三件事：<em>暴風圈大</em>、<em>路徑往西修</em>、<em>不排除成為西北颱</em>。圖中金色地面圓環就是七級風暴風圈——把它拖到台灣旁邊，你會發現它的直徑（760 公里）幾乎是台灣本島南北長度（394 公里）的兩倍。當圓環掃過城市點時，城市會轉紅。</p>
+  <p>藍色虛線是氣象署路徑潛勢的示意走向：颱風自巴士海峽東方海面北轉西北，週六通過台灣東北部海面、沿北部近海前進，午夜前後登陸浙閩交界。中心是否被台灣地形拉近、進而登陸宜蘭一帶，是目前唯一的變數。</p>
+  <p style="margin-top:10px;color:#5f7590">垂直高度為示意誇張表現（雲頂結構），非等比例。數據引自中央氣象署 7/9 資料與各家報導；路徑為預測，實際以氣象署最新發布為準。</p>
+</section>
+
+<div class="ticker"><div class="seg" id="seg1"></div><div class="seg" id="seg2"></div></div>
+<footer>Edited / Designed / Integrated by t-s-y</footer>
+
+<script>
+(function(){
+"use strict";
+
+/* ══════════ 資料 ══════════ */
+// 路徑（示意預測）：hr = 距 7/9 08:00 的小時數
+const TRACK = [
+  {hr:0,  lat:18.4, lon:129.8, r7:380, r10:180, tag:"巔峰"},
+  {hr:12, lat:19.6, lon:128.5, r7:378, r10:180, tag:""},
+  {hr:24, lat:21.1, lon:126.9, r7:370, r10:175, tag:"發布陸警"},
+  {hr:36, lat:22.6, lon:125.3, r7:358, r10:170, tag:"暴風圈觸陸"},
+  {hr:48, lat:24.3, lon:123.4, r7:345, r10:165, tag:"最接近"},
+  {hr:58, lat:25.5, lon:122.0, r7:335, r10:160, tag:"北部近海"},
+  {hr:64, lat:26.4, lon:120.6, r7:320, r10:150, tag:"登陸浙閩"}
+];
+const T_END = 64;
+
+// 台灣輪廓（粗略）
+const TW = [[121.00,25.28],[121.55,25.30],[121.95,25.02],[121.90,24.60],[121.83,24.15],
+  [121.62,23.98],[121.40,23.30],[121.20,22.80],[120.90,22.30],[120.85,21.92],
+  [120.65,22.00],[120.30,22.55],[120.15,23.10],[120.10,23.60],[120.25,24.10],
+  [120.55,24.50],[120.85,24.85]];
+
+const CITIES = [
+  {n:"基隆",lon:121.74,lat:25.13},{n:"台北",lon:121.56,lat:25.03},
+  {n:"宜蘭",lon:121.75,lat:24.75},{n:"台中",lon:120.68,lat:24.15},
+  {n:"花蓮",lon:121.60,lat:23.98},{n:"高雄",lon:120.30,lat:22.63},
+  {n:"鵝鑾鼻",lon:120.85,lat:21.92}
+];
+const ELUANBI = {lon:120.85, lat:21.92};
+
+/* ══════════ 座標：經緯度 → 公里 ══════════ */
+const LON0 = 121.0, LAT0 = 23.6, D2R = Math.PI/180;
+const ll = (lon,lat) => [ (lon-LON0)*111*Math.cos(lat*D2R), (lat-LAT0)*111 ];
+
+/* ══════════ 畫布 ══════════ */
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){
+  DPR = Math.min(devicePixelRatio||1, 2);
+  W = cv.clientWidth; H = cv.clientHeight;
+  cv.width = W*DPR; cv.height = H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+addEventListener('resize', resize);
+
+/* ══════════ 相機 ══════════ */
+let yaw = -0.35, pitch = 0.72, zoom = 0.36, autoSpin = true;
+const CAM_D = 3400, FOCAL = 2600, VEX = 6;   // VEX：垂直誇張
+
+function project(x,y,z){
+  const ca=Math.cos(yaw), sa=Math.sin(yaw);
+  const X1 = x*ca - y*sa;
+  const Y1 = x*sa + y*ca;
+  const cp=Math.cos(pitch), sp=Math.sin(pitch);
+  const depth = Y1*cp - z*sp;
+  const up    = Y1*sp + z*cp;
+  const s = FOCAL/(CAM_D + depth);
+  const k = zoom * (W/900) * 2.2;
+  return [ W/2 + X1*s*k, H/2 - up*s*k, depth, s ];
+}
+
+/* ══════════ 颱風粒子 ══════════ */
+const P = [];
+function seed(){
+  P.length = 0;
+  const ARMS = 4, N = 2100;
+  for(let i=0;i<N;i++){
+    const u = Math.pow(Math.random(), .62);
+    const rN = 0.09 + u*0.95;                       // 0..~1（相對 r7）
+    const arm = (i % ARMS) * (2*Math.PI/ARMS);
+    const spiralPull = Math.random() < 0.7 ? 1 : 0; // 三成散雲
+    const th = spiralPull
+        ? arm + 2.35*Math.log(Math.max(rN,0.09)/0.09) + (Math.random()-0.5)*0.55
+        : Math.random()*Math.PI*2;
+    P.push({rN, th, jitH:(Math.random()-0.5)*3.2, sz:0.8+Math.random()*1.5, ph:Math.random()*6.28});
+  }
+  for(let i=0;i<110;i++){                            // 颱風眼底部低雲
+    P.push({rN:0.012+Math.random()*0.07, th:Math.random()*6.28, jitH:-9+Math.random()*2, sz:0.7+Math.random(), ph:Math.random()*6.28, eye:1});
+  }
+}
+seed();
+
+function heightOf(rN){
+  const r = rN;                                     // 0..1
+  const eyewall = 15*Math.exp(-Math.pow((r-0.19)/0.13,2));
+  return (2.4 + eyewall + 3.2*(1-Math.min(r,1))) * VEX;
+}
+function colorOf(rN, a){
+  if(rN<0.17) return `rgba(255,244,214,${a})`;
+  if(rN<0.30) return `rgba(255,206,120,${a})`;
+  if(rN<0.55) return `rgba(126,214,255,${a*0.92})`;
+  return `rgba(72,142,214,${a*0.78})`;
+}
+
+/* ══════════ 時間 / 內插 ══════════ */
+let hour = 0, playing = true;
+const LOOP_SEC = 42;
+
+function lerpTrack(h){
+  h = Math.max(0, Math.min(T_END, h));
+  for(let i=0;i<TRACK.length-1;i++){
+    const a=TRACK[i], b=TRACK[i+1];
+    if(h>=a.hr && h<=b.hr){
+      const t=(h-a.hr)/(b.hr-a.hr);
+      return {
+        lat:a.lat+(b.lat-a.lat)*t, lon:a.lon+(b.lon-a.lon)*t,
+        r7:a.r7+(b.r7-a.r7)*t, r10:a.r10+(b.r10-a.r10)*t,
+        tag: t>0.82 ? b.tag : (t<0.18 ? a.tag : "")
+      };
+    }
+  }
+  const L=TRACK[TRACK.length-1]; return {lat:L.lat,lon:L.lon,r7:L.r7,r10:L.r10,tag:L.tag};
+}
+function stamp(h){
+  const base = Date.UTC(2026,6,9,0,0) + 8*3600e3;   // 7/9 08:00 (UTC+8)
+  const d = new Date(base + h*3600e3);
+  const p = n => String(n).padStart(2,'0');
+  return `7/${p(d.getUTCDate())} ${p(d.getUTCHours())}:00`;
+}
+function km(a,b){ const A=ll(a.lon,a.lat), B=ll(b.lon,b.lat); return Math.hypot(A[0]-B[0],A[1]-B[1]); }
+
+/* ══════════ 繪圖元件 ══════════ */
+function poly(pts, z, stroke, fill, w, dash){
+  ctx.save(); ctx.setLineDash(dash||[]);
+  ctx.beginPath();
+  pts.forEach((p,i)=>{ const q=project(p[0],p[1],z||0); i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]); });
+  if(fill){ ctx.closePath(); ctx.fillStyle=fill; ctx.fill(); }
+  if(stroke){ if(fill)ctx.closePath(); ctx.strokeStyle=stroke; ctx.lineWidth=w||1; ctx.stroke(); }
+  ctx.restore();
+}
+function ring(cx,cy,r,color,w,dash,glow){
+  const pts=[]; for(let i=0;i<=96;i++){const a=i/96*Math.PI*2; pts.push([cx+Math.cos(a)*r, cy+Math.sin(a)*r]);}
+  if(glow){ ctx.save(); ctx.shadowColor=color; ctx.shadowBlur=14; poly(pts,0,color,null,w,dash); ctx.restore(); }
+  else poly(pts,0,color,null,w,dash);
+}
+function seaGrid(){
+  ctx.strokeStyle='rgba(90,140,190,.10)'; ctx.lineWidth=1;
+  for(let x=-1400;x<=1400;x+=200){
+    const a=project(x,-900,0), b=project(x,900,0);
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+  }
+  for(let y=-900;y<=900;y+=200){
+    const a=project(-1400,y,0), b=project(1400,y,0);
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+  }
+}
+
+/* ══════════ 主迴圈 ══════════ */
+const clockEl=document.getElementById('clock'), posEl=document.getElementById('pos'),
+      r7El=document.getElementById('r7'), distEl=document.getElementById('dist'), hitEl=document.getElementById('hit'),
+      scrub=document.getElementById('scrub');
+
+let last=performance.now(), spinPhase=0;
+
+function frame(now){
+  const dt = Math.min((now-last)/1000, .05); last = now;
+  if(playing){ hour += dt * (T_END/LOOP_SEC); if(hour>T_END) hour = 0; scrub.value = hour/T_END*1000; }
+  if(autoSpin) yaw += dt*0.055;
+  spinPhase += dt;
+
+  const S = lerpTrack(hour);
+  const [cx,cy] = ll(S.lon,S.lat);
+
+  ctx.clearRect(0,0,W,H);
+  seaGrid();
+
+  // 台灣本島
+  poly(TW.map(p=>ll(p[0],p[1])), 0, 'rgba(122,240,170,.85)', 'rgba(24,74,58,.55)', 1.6);
+
+  // 城市（進暴風圈轉紅）
+  let inStorm = [];
+  CITIES.forEach(c=>{
+    const d = km(c, S);
+    const hitByR7 = d < S.r7, hitByR10 = d < S.r10;
+    if(hitByR7) inStorm.push(c.n);
+    const [x,y] = ll(c.lon,c.lat), q = project(x,y,0);
+    const col = hitByR10 ? '#ff3b30' : hitByR7 ? '#ff8a5b' : '#9fb6cc';
+    ctx.beginPath(); ctx.arc(q[0],q[1], hitByR7?4:2.6, 0, 6.3);
+    ctx.fillStyle=col; ctx.fill();
+    if(hitByR7){ ctx.save(); ctx.shadowColor=col; ctx.shadowBlur=12; ctx.fill(); ctx.restore(); }
+    ctx.fillStyle = hitByR7 ? '#ffd9cf' : '#7f96ad';
+    ctx.font='11px "Noto Sans TC",sans-serif';
+    ctx.fillText(c.n, q[0]+7, q[1]+4);
+  });
+
+  // 路徑：已過 / 未來
+  const past=[], future=[];
+  for(let h=0;h<=T_END;h+=1){ const s=lerpTrack(h); (h<=hour?past:future).push(ll(s.lon,s.lat)); }
+  if(future.length) poly(future,0,'rgba(94,200,255,.55)',null,1.6,[7,7]);
+  if(past.length>1)  poly(past,0,'rgba(255,209,102,.9)',null,2.2);
+  TRACK.forEach(t=>{
+    const [x,y]=ll(t.lon,t.lat), q=project(x,y,0);
+    ctx.beginPath(); ctx.arc(q[0],q[1],2.6,0,6.3); ctx.fillStyle='#cfe6ff'; ctx.fill();
+    if(t.tag){ ctx.fillStyle='rgba(200,225,245,.72)'; ctx.font='10px "Noto Sans TC",sans-serif'; ctx.fillText(t.tag,q[0]+6,q[1]-6); }
+  });
+
+  // 暴風圈（地面）
+  ring(cx,cy,S.r7,'rgba(255,209,102,.75)',1.8,[9,7],true);
+  ring(cx,cy,S.r7,'rgba(255,209,102,.10)',10);
+  ring(cx,cy,S.r10,'rgba(255,95,87,.85)',1.8,null,true);
+
+  // 眼牆光柱
+  const pulse = 0.35+0.2*Math.sin(spinPhase*1.6);
+  for(let i=0;i<26;i++){
+    const a=i/26*Math.PI*2, r=S.r10*0.22;
+    const A=project(cx+Math.cos(a)*r, cy+Math.sin(a)*r, 0);
+    const B=project(cx+Math.cos(a)*r, cy+Math.sin(a)*r, heightOf(0.19));
+    ctx.strokeStyle=`rgba(255,236,190,${pulse*0.30})`; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(A[0],A[1]); ctx.lineTo(B[0],B[1]); ctx.stroke();
+  }
+
+  // 3D 雲粒子
+  const buf=[];
+  for(const p of P){
+    const w = 0.52*Math.pow(0.20/Math.max(p.rN,0.06), 0.72);  // 內快外慢
+    p.th += w*dt*(p.eye?0.5:1);
+    const r = p.rN*S.r7;
+    const x = cx + Math.cos(p.th)*r, y = cy + Math.sin(p.th)*r;
+    const z = (p.eye? 3 : heightOf(p.rN)) + p.jitH + Math.sin(spinPhase*1.1+p.ph)*1.4;
+    const q = project(x,y,z);
+    buf.push([q[2], q[0], q[1], q[3], p]);
+  }
+  buf.sort((a,b)=>b[0]-a[0]);
+  ctx.globalCompositeOperation='lighter';
+  for(const [d,sx,sy,s,p] of buf){
+    const fade = Math.max(0.18, Math.min(1, (CAM_D+700-d)/1500));
+    const a = (p.eye?0.30:0.62) * fade;
+    ctx.beginPath(); ctx.arc(sx,sy, Math.max(0.6, p.sz*s*1.9), 0, 6.3);
+    ctx.fillStyle = colorOf(p.rN, a); ctx.fill();
+  }
+  ctx.globalCompositeOperation='source-over';
+
+  // 中心十字
+  const qc = project(cx,cy,0);
+  ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(qc[0]-7,qc[1]); ctx.lineTo(qc[0]+7,qc[1]);
+  ctx.moveTo(qc[0],qc[1]-7); ctx.lineTo(qc[0],qc[1]+7); ctx.stroke();
+
+  // HUD
+  clockEl.textContent = stamp(hour);
+  posEl.textContent = `${S.lat.toFixed(1)}°N ${S.lon.toFixed(1)}°E`;
+  r7El.textContent = `${Math.round(S.r7)} km`;
+  distEl.textContent = `${Math.round(km(ELUANBI,S))} km`;
+  hitEl.innerHTML = inStorm.length
+    ? `暴風圈壟罩：<span class="warn">${inStorm.join('、')}</span>`
+    : `暴風圈：<b style="color:#8fa6bd">尚未觸陸</b>`;
+
+  requestAnimationFrame(frame);
+}
+
+/* ══════════ 互動 ══════════ */
+let drag=false, lx=0, ly=0;
+function down(x,y){drag=true;lx=x;ly=y;autoSpin=false;spinBtn.textContent='🜛 自動環繞：關';}
+function move(x,y){
+  if(!drag)return;
+  yaw += (x-lx)*0.006;
+  pitch = Math.max(0.12, Math.min(1.45, pitch + (y-ly)*0.005));
+  lx=x; ly=y;
+}
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);down(e.clientX,e.clientY)});
+cv.addEventListener('pointermove',e=>move(e.clientX,e.clientY));
+cv.addEventListener('pointerup',()=>drag=false);
+cv.addEventListener('pointercancel',()=>drag=false);
+cv.addEventListener('wheel',e=>{e.preventDefault(); zoom = Math.max(0.14, Math.min(1.6, zoom*(e.deltaY>0?0.92:1.08)));},{passive:false});
+
+let pinch=0;
+cv.addEventListener('touchmove',e=>{
+  if(e.touches.length===2){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    if(pinch) zoom = Math.max(0.14, Math.min(1.6, zoom*(d/pinch)));
+    pinch=d; e.preventDefault();
+  }
+},{passive:false});
+cv.addEventListener('touchend',()=>pinch=0);
+
+const playBtn=document.getElementById('play'), spinBtn=document.getElementById('spin'), resetBtn=document.getElementById('reset');
+playBtn.onclick=()=>{ playing=!playing; playBtn.textContent = playing?'⏸ 暫停':'▶ 播放'; };
+spinBtn.onclick=()=>{ autoSpin=!autoSpin; spinBtn.textContent = autoSpin?'🜛 自動環繞：開':'🜛 自動環繞：關'; };
+resetBtn.onclick=()=>{ yaw=-0.35; pitch=0.72; zoom=0.36; };
+scrub.oninput=()=>{ hour = scrub.value/1000*T_END; playing=false; playBtn.textContent='▶ 播放'; };
+
+/* ══════════ 跑馬燈 ══════════ */
+const TEXT = '　◆　中央氣象署：七級風平均暴風半徑 <i>380 公里</i>（西南側 400、東南側 420）　◆　中心氣壓 925 hPa，瞬間最大陣風 <i>63 m/s</i>　◆　<b>週五晚間至週六白天為影響最劇烈時段</b>　◆　基隆暴風侵襲機率 99%、北北桃宜 95–97%　◆　上一個暴風半徑達 350 km 且發布海陸警的颱風，是 25 年前的尤特　◆　中心通過東北角近海機率最高，西北颱次之，登陸機會稍低　◆　週日颱風進入中國，影響告終　';
+const s1=document.getElementById('seg1'), s2=document.getElementById('seg2');
+s1.innerHTML=TEXT; s2.innerHTML=TEXT;
+let tx=0;
+function tick(){
+  const w=s1.offsetWidth;
+  tx -= 0.7; if(-tx>=w) tx+=w;
+  s1.style.transform=`translateX(${tx}px)`; s2.style.transform=`translateX(${tx}px)`;
+  requestAnimationFrame(tick);
+}
+
+/* ══════════ 卡片捲動浮現 ══════════ */
+const io = new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('in'); }),{threshold:.2});
+document.querySelectorAll('.card').forEach((c,i)=>{ c.style.transitionDelay=(i*70)+'ms'; io.observe(c); });
+
+resize();
+requestAnimationFrame(frame);
+requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
